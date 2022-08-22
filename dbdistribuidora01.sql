@@ -79,6 +79,7 @@ create table tbCompra (
 create table tbProduto (
  CodBarras decimal(14,0) primary key,
  Qtd int,
+
  Nome varchar(200) not null,
  ValorUnitario decimal(6, 2) not null
 );
@@ -310,6 +311,7 @@ begin
     
 end $$
 
+
 select * from tbCliente;
 select * from tbClientePF;
 select * from tbClientePJ;
@@ -323,3 +325,32 @@ select * from tbProduto;
 select * from tbFornecedor;
 
 call spInsertCliPJ('Durango', 12345677772349, 98765444102, 12366660, 'Rua Amores', 1254, null, 'Lá', 'Lá Lá Lá ', 'BA');
+DELIMITER $$
+CREATE PROCEDURE spInsertCompra(vNotaFiscal int, vFornecedor varchar(200), vDataCompra date,
+                                vCodigoBarras bigint, vValorItem decimal(6,2), vQtd int, vQtdTotal int,
+                                vValorTotal decimal(8, 2))
+BEGIN
+		if (select Codigo from tbFornecedor where Nome = vFornecedor) then
+			set @IdFornecedor = (select Codigo from tbFornecedor where Nome = vFornecedor);
+            if not exists (select NF from tbNotaFiscal where NF = vNotaFiscal) then
+				insert into tbNotaFiscal(NF, TotalNota, DataEmissao) values (vNotaFiscal, vValorTotal, vDataCompra);
+                insert into tbCompra(NotaFiscal, DataCompra, ValorTotal, QtdTotal, Cod_Fornecedor) values (vNotaFiscal, vDataCompra, vValorTotal, vQtdTotal,
+				@IdFornecedor);
+                insert into tbItemCompra(Qtd, ValorItem, NotaFiscal, CodBarras) values (vQtd, vValorItem, vNotaFiscal, vCodigoBarras);
+			else
+				insert into tbItemCompra(Qtd, ValorItem, NotaFiscal, CodBarras) values (vQtd, vValorItem, vNotaFiscal, vCodigoBarras);
+			end if;
+		else
+			select "O fornecedor não existe, portanto a compra não pode ser feita";
+		end if;
+END $$
+
+call spInsertCompra(8459, 'Amoroso e Doce', '2018-05-01', 12345678910111, 22.22, 200, 700, 21944.00);
+call spInsertCompra(2482, 'Revenda Chico Loco', '2020-04-22', 12345678910112, 40.50, 180, 180, 7290.00);
+call spInsertCompra(21563, 'Marcelo Dedal', '2020-07-12', 12345678910113, 3.00, 300, 300, 900.00);
+call spInsertCompra(8459, 'Amoroso e Doce', '2020-12-04', 12345678910114, 35.00, 500, 700, 21944.00);
+call spInsertCompra(156354, 'Revenda Chico Loco', '2021-11-23', 12345687910115, 54.00, 350, 350, 18900.00);
+
+select * from tbCompra;
+select * from tbNotaFiscal;
+select * from tbItemCompra;
