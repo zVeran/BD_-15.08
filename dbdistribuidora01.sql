@@ -1,7 +1,7 @@
 set sql_safe_updates= 0; -- Para poder excluir sem Where. 
-drop database dbDistribuidora23;
-create database dbDistribuidora23;
-use dbDistribuidora23;
+drop database dbDistribuidora;
+create database dbDistribuidora;
+use dbDistribuidora;
 
 create table tbCliente(
 	IdCli int primary key auto_increment,
@@ -128,7 +128,7 @@ alter table tbEndereco add foreign key (IdUF) references tbUF(IdUF);
 delimiter $$
 create procedure spSelectErro(vRegistro varchar(50),vExiste enum("já","não"))
 begin
-	select concat("O registro de: ",vRegistro," ",vExiste," existe na tabela.");
+	select concat("O registro de: ",vRegistro," ",vExiste," existe na tabela.") as "Erro de insert!";
 end
 $$
 
@@ -261,7 +261,6 @@ Select * from tbCidade;
 select * from tbUf;
 
 -- 7) 
-describe tbCliente;
 delimiter $$
  create procedure spInsertClientePf(vNomeCli varchar(200), vNumEnd decimal(6,0), vCompEnd varchar(50), vCepCli decimal(8,0), vCpf decimal(11,0), vRg decimal(9,0), vRg_Dig char(1), vNasc date,vLogradouro varchar(200),vBairro varchar(200), vCidade varchar(200), vEstado varchar(200))
  begin
@@ -288,8 +287,8 @@ describe tbEndereco;
 select * from tbCliente;
 select * from tbClientePF;
 
--- 8)
 
+-- 8) 
 delimiter $$
  create procedure spInsertClientePJ(vNomeCli varchar(200),vCNPJ decimal(14,0),vIE decimal(11,0), vCepCli decimal(8,0), vLogradouro varchar(200), vNumEnd decimal(6,0), vCompEnd varchar(50),vBairro varchar(200), vCidade varchar(200), vEstado varchar(200)) 
  begin
@@ -306,8 +305,6 @@ delimiter $$
  end
  $$
  
- Describe tbCliente;
- 
 call spInsertClientePj("Paganada",12345678912345,98765432198,12345051,"Av. Brasil",159,null,"Lapa","Campinas","SP");
 call spInsertClientePj("Caloteando",12345678912346,98765432199,12345053,"Av. Paulista",69,null,"Penha","Rio de Janeiro","RJ");
 call spInsertClientePj("Semgrana",12345678912347,98765432100,12345060,"Rua dos Amores",189,null,"Sei lá","Recife","PE");
@@ -318,89 +315,83 @@ select * from tbCliente;
 select * from tbClientePf;
 select * from tbClientePJ;
 
--- 9
 
+-- 9)
 delimiter $$
-create procedure spInsertCompra(vNotaFiscal int,vFornecedor varchar(100), vDataCompra date, vCodigoBarras decimal(14,0), vValorItem decimal(5,2), vQtd int,vQtdTotal int,vValorTotal decimal(10,2))
+create procedure spInsertCompra(vNotaFiscal int,vFornecedor varchar(100), vDataCompra char(10), vCodigoBarras decimal(14,0), vValorItem decimal(5,2), vQtd int,vQtdTotal int,vValorTotal decimal(10,2))
 begin
+	declare vDataFormatada date;
 	if not exists(select * from tbCompra where NotaFiscalPedido = vNotaFiscal) then
         set @Fornecedor = (select IdFornecedor from tbFornecedor where NomeFornecedor = vFornecedor);
-		insert into tbCompra(NotaFiscalPedido,DataCompra,ValorTotal,QtdTotal,IdFornecedor) values (vNotaFiscal,vDataCompra,vValorTotal,vQtdTotal,@Fornecedor);
-    end if;    
+        set vDataFormatada = str_to_date(vDataCompra, '%d/%m/%Y');
+		insert into tbCompra(NotaFiscalPedido,DataCompra,ValorTotal,QtdTotal,IdFornecedor) values (vNotaFiscal,vDataFormatada,vValorTotal,vQtdTotal,@Fornecedor);
+    end if;
+    if not exists(select * from tbCompraProduto where NotaFiscalPedido = vNotaFiscal and CodigoBarras = vCodigoBarras) then
     insert into tbCompraProduto(NotaFiscalPedido,CodigoBarras,Qtd,ValorItem) values (vNotaFiscal,vCodigoBarras,vQtd,vValorItem);
+    else
+		call spSelectErro('Compra desse produto','já');
+	end if;
 end
 $$
 
-call spInsertCompra(8459,"Amoroso e Doce",'2018-05-01',12345678910111,22.22,200,700, 21944.00);
-call spInsertCompra(2482,"Revenda Chico Loco",'2020-04-22',12345678910112,40.50,180,180,7290.00);
-call spInsertCompra(21653,"Marcelo Dedal",'2020-07-12',12345678910113,3.00,300,300,900.00);
-call spInsertCompra(8459,"Amoroso e Doce",'2020-12-04',12345678910114,35.00,500,700,21944.00);
-call spInsertCompra(156354,"Revenda Chico Loco",'2021-11-23',12345678910115,54.00,350,350,18900.00);
+call spInsertCompra(8459,"Amoroso e Doce",'01/05/2018',12345678910111,22.22,200,700, 21944.00);
+call spInsertCompra(2482,"Revenda Chico Loco",'22/04/2020',12345678910112,40.50,180,180,7290.00);
+call spInsertCompra(21653,"Marcelo Dedal",'12/07/2020',12345678910113,3.00,300,300,900.00);
+call spInsertCompra(8459,"Amoroso e Doce",'04/12/2020',12345678910114,35.00,500,700,21944.00);
+call spInsertCompra(156354,"Revenda Chico Loco",'23/11/2021',12345678910115,54.00,350,350,18900.00);
 
 select * from tbCompra;
 
--- Exercício 10
 
+-- 10)
 delimiter $$
-create procedure spInsertVenda(vCodigoVenda int,vCliente varchar(100), vDataVenda char(10), vCodigoBarras decimal(14,0), vValorItem decimal(5,2), 
-vQtd int,vTotalVenda decimal (10,2), vNotaFiscal int)
-
+create procedure spInsertVenda(vCodigoVenda int,vCliente varchar(100), vDataVenda char(10), vCodigoBarras decimal(14,0), vValorItem decimal(5,2), vQtd int,vTotalVenda decimal (10,2), vNotaFiscal int)
 begin
+	declare vDataFormatada date;
 	if exists (select * from tbProduto,tbCliente where CodigoBarras = vCodigoBarras and NomeCli = vCliente) then
 		if not exists(select * from tbVenda where CodigoVenda = vCodigoVenda) then
-			set @dataVenda = str_to_date(vDataVenda, "%d,%m,%Y");
+			set vDataFormatada = str_to_date(vDataVenda, '%d/%m/%Y');
 			set @idCliente = (select IdCli from tbCliente where NomeCli = vCliente);
-            
-			insert into tbVenda(CodigoVenda,IdCli,DataVenda,ValorTotal,QtdTotal,NotaFiscal) values (vCodigoVenda,@idCliente,@dataVenda,vTotalVenda,vQtd,vNotaFiscal);
+			insert into tbVenda(CodigoVenda,IdCli,DataVenda,ValorTotal,QtdTotal,NotaFiscal) values (vCodigoVenda,@idCliente,vDataFormatada,vTotalVenda,vQtd,vNotaFiscal);
 		end if;
-	
-		insert into tbItemVenda(CodigoVenda,CodigoBarras,ValorItem,Qtd) values (vCodigoVenda,vCodigoBarras,vValorItem,vQtd);
+		if not exists(select * from tbItemVenda where CodigoVenda = vCodigoVenda and CodigoBarras = vCodigoBarras) then
+			insert into tbItemVenda(CodigoVenda,CodigoBarras,ValorItem,Qtd) values (vCodigoVenda,vCodigoBarras,vValorItem,vQtd);
+        else
+			call spSelectErro('Venda desse produto','já');
+		end if;
     end if;
-    
-	if not exists(select * from tbCliente where NomeCli = vCliente) then call spSelectErro("Produto","não"); 
-    end if;
-	if not exists(select * from tbProduto where CodigoBarras = vCodigoBarras) then call spSelectErro("Cliente","não"); 
-    end if;
-    
+	if not exists(select * from tbCliente where NomeCli = vCliente) then call spSelectErro("Produto","não"); end if;
+	if not exists(select * from tbProduto where CodigoBarras = vCodigoBarras) then call spSelectErro("Cliente","não"); end if;
 end
 $$
 
-call spInsertVenda(1,"Pimpão","22-08-2022",12345678910111,54.61,1,54.61,null);
-call spInsertVenda(2,"Lança Perfume","22-08-2022",12345678910112,100.45,2,200.90,null);
-call spInsertVenda(3,"Pimpão","22-08-2022",12345678910113,44.00,1,44.00,null);
-
--- select do exercicio 10 
-
+call spInsertVenda(1,"Pimpão","22/08/2022",12345678910111,54.61,1,54.61,null);
+call spInsertVenda(2,"Lança Perfume","22/08/2022",12345678910112,54.61,1,54.61,null);
+call spInsertVenda(3,"Pimpão","22/08/2022",12345678910113,100.45,2,200.90,null);
 select * from tbVenda;
 select * from tbItemVenda;
-select * from tbCompra;
-select * from tbCliente;
-
--- fim 
-
-select * from tbClientePf;
-select * from tbClientePJ;
 
 
--- Exercício 11
-
+-- 11)
 delimiter $$
 create procedure spInsertNotaFiscal(vNotaFiscal int, vCliente varchar(100), vDataEmissao char(10))
 begin
-	set @dataEmissao = str_to_date(vDataEmissao, "%d-%m-%Y");
+	declare vDataFormatada date;
+	set vDataFormatada = str_to_date(vDataEmissao, '%d/%m/%Y');
     set @idCliente = (select idCli from tbCliente where NomeCli = vCliente);
-	set @totalVenda = (select sum(ValorTotal) from tbVenda where idCli = @idCliente);
-    
-    insert into tbNotaFiscal(NotaFiscal,TotalNota,DataEmissao) values (vNotaFiscal,@totalVenda,@dataEmissao);
+	set @totalVenda = (select sum(ValorTotal) from tbVenda where idCli = @idCliente and DataVenda = vDataFormatada);
+    if (@totalVenda is null) then call spSelectErro("Venda","não");
+    else
+		if not exists(select * from tbNotaFiscal where NotaFiscal = vNotaFiscal) then
+			insert into tbNotaFiscal(NotaFiscal,TotalNota,DataEmissao) values (vNotaFiscal,@totalVenda,vDataFormatada);
+		else
+			update tbNotaFiscal set TotalNota = @totalVenda where NotaFiscal = vNotaFiscal;
+        end if;
+	end if;
 end
 $$
 
-drop procedure spInsertNotaFiscal;
-
-call spInsertNotaFiscal(359,"Pimpão","22-08-2022");
-call spInsertNotaFiscal(360,"Lança Perfume","22-08-2022");
-
-
-select * from tbNotaFiscal;
-
--- fim 
+describe tbVenda;
+describe tbNotaFiscal;
+call spInsertNotaFiscal(359,"Pimpão","22/08/2022");
+call spInsertNotaFiscal(360,"Lança Perfume","22/08/2022");
